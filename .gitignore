@@ -1,0 +1,6 @@
+.vscode/
+LEECHUNG.vhd
+guojun/
+*.bin
+play/
+bin/
