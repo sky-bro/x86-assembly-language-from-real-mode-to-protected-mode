@@ -9,8 +9,8 @@ char buf[512];
 int main(int argc, char *argv[]){
 
     if (argc < 3) {
-        printf("Please pass in source & target file: writer <src.bin> <tar.bin>");
-        return 1;
+        printf("Please pass in source & target file: writer <src.bin> <tar.bin>\n");
+        return 0;
     }
     
     char *src = argv[1];
