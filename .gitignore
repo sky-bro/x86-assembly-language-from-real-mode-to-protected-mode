@@ -1,6 +1,7 @@
 .vscode/
-LEECHUNG.vhd
 guojun/
 *.bin
 play/
 bin/
+*.vhd
+Image

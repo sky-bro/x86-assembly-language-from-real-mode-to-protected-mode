@@ -12,6 +12,6 @@
     ```
 * run
 
-```shell
-    ./writer src.bin LEECHUNG.vhd
-```
+    ```shell
+        ./writer src.bin LEECHUNG.vhd
+    ```

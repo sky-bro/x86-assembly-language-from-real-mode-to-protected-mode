@@ -147,10 +147,11 @@
   * 寄存器寻址：最简单的寻址方式，指令执行时，操作的数位于寄存器中，可以从寄存器里取得。
   * 立即寻址：又叫立即数寻址，也就是说，指令的操作数是一个立即数
   * 内存寻址：
-    * 直接寻址
-    * 基址寻址：在指令的地址部分使用基址寄存器BX或者BP来提供偏移地址
-    * 变址寻址：类似基址寻址，唯一不同在于使用的是变址寄存器（或称索引寄存器）SI和DI
-    * 基址变址寻址
+    * 直接寻址(段超越)
+    * 寄存器间接寻址(段超越)
+    * 寄存器相对寻址 变址寄存器( SI DI )基址寄存器(BP BX)
+    * 基址加变址寻址
+    * 相对基址加变址寻址
 
 ## 第8章 硬盘和显卡的访问与控制
 
@@ -185,3 +186,441 @@
 * basic set up: [me.bxrc](./me.bxrc)
 * [The configuration file bochsrc](http://bochs.sourceforge.net/doc/docbook/user/bochsrc.html)
 
+## 常见的汇编指令
+
+> [汇编快速入门](https://www.kanxue.com/book-section_list-31.htm)
+
+### 数据传送指令
+
+* 包括
+  * 通用传送指令（都不影响标志位）
+  * 累加器专用传送指令
+  * 地址传送指令
+  * 标志传送指令
+* 通用传送指令
+  1. 基本传送指令MOV
+     * 存储器操作数之间不能直接传送
+     * 立即数不能直接送段寄存器
+     * 段寄存器之间不能直接传送
+     * CS只可以作为源操作数
+     * 源操作数和目的操作数宽度必须相同
+  2. 堆栈指令PUSH、POP
+     * LIFO
+     * SS SP 指向栈顶
+     * push -> SP-2
+     * 堆栈操作都按字操作
+     * 操作数可以是CPU内部寄存器或存储单元
+     * PUSH CS合法，POP CS非法
+     * 执行push，低字节放在低地址， 高字节放在高地址
+  3. 交换指令XCHG
+     * 寄存器之间，寄存器和存储器之间
+     * 存储器之间不能直接交换
+     * 段寄存器不能作为操作数(仅一个也不行？)
+     * 允许字或字节操作
+* 累加器专用传送指令
+  * 输入指令IN
+    * 用于CPU从外设端口接收数据
+    * 具体形式有四种
+      * IN AL, data8; 从8位端口地址输入一个字节
+      * IN AX, data8; 从8位端口地址输入一个字
+      * IN AL, DX; 从16位端口地址输入一个字节
+      * IN AX, DX; 从16位端口地址输入一个字
+  * 输出指令OUT
+    * 用于CPU向外设端口发送数据
+    * 四种形式
+      * OUT data8, AL; 向8位地址端口输出一个字节
+      * OUT data8, AX; 向8位地址端口输出一个字
+      * OUT DX, AL; 向16位地址端口输出一个字节
+      * OUT DX, AX; 向16位地址端口输出一个字
+* 目的地址传送指令
+  * 8086提供三条
+    * LEA 
+    * LDS
+    * LES
+  * LEA (Load Effective Address)
+    * LEA reg16, mem
+    * reg16 -- 16位通用寄存器；mem -- 存储单元
+    * 源操作数必须以寄存器间接寻址、变址寻址、基址加变址寻址等方式表示的存储器操作数
+  * LDS (Load pointer using DS)
+    * LDS reg16, mem;
+    * 把源操作数指定的4个相继字节的数据分别送到指令指定的寄存器以及DS寄存器中
+    * (reg16) <- (mem)
+    * (DS) <- (mem+2)
+* 标志传送指令
+  * LAHF (Load AH from Flags)
+    * 标志寄存器低八位 -> (AH)
+    * (AH) <- (PSW的低字节)
+  * SAHF (Store AH into Flags)
+    * (AH) -> 标志寄存器低八位
+    * (PSW的低字节) <- (AH)
+  * PUSHF (Push Flags)
+    * 标志进栈
+    * ((SP+1), (SP)) <- (PSW)
+    * SP = SP - 2
+  * POPF (Pop Flags)
+    * 标志出栈
+    * (PSW) <- ((SP+1), (SP))
+    * SP = SP + 2
+
+### 算术运算指令
+
+* 加法指令
+
+  * 5条
+
+    * ADD (Addition) (无进位)加法指令
+    * ADC (Add with Carry) 带进位加法指令
+    * INC (Increment) 加1指令
+    * AAA (ASCII adjust for addition) 加法ASCII调整指令
+    * DAA (Decimal adjust for addition) 加法十进制调整指令
+
+  * ADD
+
+    * 源操作数和目的操作数不能同时为存储器， 不能为段寄存器
+    * 指令影响标志位
+    * 溢出标志位O
+    * 进位标志位C
+
+  * ADC
+
+    * 主要用于多字节运算 (加上上次运算的进位标志C)
+
+    * 如：求两个32位数12345678H与ABCDEFABH之和
+
+      ```assembly
+      MOV AX, 1234H
+      MOV BX, 5678H
+      ADD BX, EFABH
+      ADC AX, ABCDH
+      ```
+
+  * 加1指令INC
+    * INC dest;
+    * dest: 通用寄存器，存储器
+    * 用于在循环程序中修改地址指针和循环次数
+    * 影响S, Z, A, P, O; 不影响C
+
+* 减法指令
+
+  * 7条
+    * SUB (Subtraction) 减法指令
+    * SBB (Subtraction with Borrow) 进位减法指令
+    * DEC (Decrement by 1) 减1指令
+    * NEG (Negate) 求补指令
+    * CMP (Compare) 比较指令
+    * AAS (ASCII Adjust for Subtraction) 减法ASCII调整指令
+    * DAS (Decimal Adjust for Subtraction) 减法十进制调整指令
+  * SUB
+  * SBB
+    * 减去上次运算的进位标志位C
+  * 减1指令DEC
+    * 用于在循环程序中修改地址指针和循环次数
+    * 不影响C标志位
+  * 求补指令NEG
+    * NEG dest;
+    * 功能：(dest) <- 0 - (dest)
+    * dest：通用寄存器，存储器
+    * 把操作数按位取反后加1
+    * 标志位
+      * 进位C：操作数为0时求补，一般使C=1
+      * 溢出O：对-128或-32768求补，O=1，否则O=0
+  * 比较指令CMP
+    * CMP dest, src; (dest) - (src)
+    * 结果不保留，只是用来影响标志位
+    * 比较两个数之间大小关系
+      1. 根据Z标志，判断两者是否相等
+      2. 根据C标志，判断两个无符号数的大小
+      3. 用S、O标志，判断两个带符号数的大小
+
+* 乘法指令
+
+  * 无符号乘法MUL
+    * MUL SRC
+    * 操作
+      1. 字节操作数：AX <- (AL)*(SRC)
+      2. 字操作数：DX:AX <- (AX)*(SRC)
+  * 带符号乘法IMUL
+    * IMUL SRC
+    * 操作：同MUL，但操作数和乘积均带符号
+    * 按有符号数的规则相乘
+
+* 除法指令
+
+  * 无符号除法DIV
+    * DIV SRC
+    * 操作
+      1. 字节除数：AL <- (AX)/(SRC)之商；AH <- (AX)/(SRC)之余
+      2. 字除数：AX <- (DX:AX)/(SRC)之商；DX <- (DX:AX)/(SRC)之余
+  * 带符号除法IDIV
+    * IDIV SRC
+    * 操作：同DIV
+  * 字节扩展指令
+    * CBW; Convert Byte to Word
+    * 将AL字节扩展成字，符号位及高字节在AH中
+  * 字扩展指令
+    * CWD; Convert Word to Double Word
+    * AX扩展成双字，符号位及高字在DX中
+
+* 十进制调整指令（略）
+
+  * 6条
+    * AAA非压缩BCD码的加法十进制调整
+    * DAA压缩BCD码的加法十进制调整
+    * AAS非压缩BCD码的减法十进制调整
+    * DAS压缩BCD码的减法十进制调整
+    * AAM乘法的十进制调整
+    * AAD除法的十进制调整
+
+### 逻辑运算和移位指令（位操作类指令）
+
+* 逻辑运算指令
+  * 5条
+    * AND
+    * TEST 测试指令
+    * OR
+    * XOR
+    * NOT
+  * AND
+    * AND dest, src;
+    * 有0则0
+    * 两操作数不能同为存储器操作数
+  * TEST
+    * TEST dest, src;
+    * 规则同AND，但结果不保存，用来改变标志位
+  * OR
+    * 有1则1
+  * XOR
+    * 不同为1 相同为0
+* 移位指令
+  * 8条
+    * SAL (Shift Arithmetic Left)算术左移
+    * SAR (Shiftarithmeticright)算术右移
+    * SHL (Shift logical left)逻辑左移
+    * SHR (Shiftlogicalright)逻辑右移
+    * ROL (Rotateleft)循环左移
+    * ROR (Rotateright)循环右移
+    * RCL (Rotateleftwith carry)带进位循环左移
+    * RCR (Rotateright withcarry)带进位循环右移
+  * 格式：操作码 reg/mem, Count
+    * Count=1或CL，指定移位次数
+    * 移1位或移位次数在CL中
+  * 逻辑左移/算术左移指令SHL/SAL
+    * 实现相同的操作，相当于无符号数X2
+    * 右边的位补0
+  * 逻辑右移
+    * 相当于无符号数除以2
+    * 高位补0
+    * 最低位移入CF
+  * 算术右移
+    * 高位补符号位0/1（最高位不变）
+    * 最低位移入CF
+  * 不含进位标志循环左移指令ROL
+    * 左边移出的位补到右边
+    * 并把CF设为该位
+  * 不含C的循环右移指令ROR
+    * 同上，只是方向向右，CF同样设为循环移动的位
+  * 含C循环左移RCL
+    * 进位值（原CF）到低位，高位进CF
+  * 含C循环右移RCR
+    * 进位值（原CF）到高位，低位进CF
+
+### 串操作指令 转移指令 处理器控制指令
+
+#### 串操作指令
+
+* “串”是内存中一段地址相连的字节或字
+
+* 串操作也叫数据块操作
+
+* 可实现存储器数据间的直接传送
+
+* 8086中有5种基本串操作
+
+  * MOVS（Move string）串传送指令
+  * CMPS（Compare string）串比较指令
+  * SCAS（Scan string）串扫描指令
+  * LODS（Load from string）取串指令
+  * STOS （Store in to string）存串指令
+
+* 串传送指令MOVS
+
+  * 串传送有2种格式
+
+    * MOVSB
+
+      * 字节传送，把数据段中SI寻址的数据传送到附加段中DI寻址的存储区域中，然后修改SI、DI
+
+        ```assembly
+        (ES:DI) <- (DS:SI)
+        (SI) <- (SI) +/- 1
+        (DI) <- (DI) +/- 1
+        ```
+
+      * 当方向标志D=0时用+，D=1时用-
+
+    * MOVSW
+
+      * 字传送，同上，只是一次传送1个字
+
+* 从串中取数指令LODS
+
+  * 2种格式
+
+    * LODSB (字节)
+
+      * ```assembly
+        (AL) <- (DS:SI)
+        (SI) <- (SI) +/- 1
+        ```
+
+    * LODSW (字)
+
+      * ```assembly
+        (AX) <- (DS:SI)
+        (SI) <- (SI) +/- 2
+        ```
+
+* 存入串指令STOS
+
+  * 2种格式
+
+    * STOSB
+
+      * ```assembly
+        (ES:DI) <- (AL)
+        (DI) <- (DI) +/- 1
+        ```
+
+    * STOSW
+
+      * ```assembly
+        (ES:DI) <- (AX)
+        (DI) <- (DI) +/- 2
+        ```
+
+  * 与REP联用时，可用来建立一串相同的值，串长度由CX内容决定
+
+* 串比较指令CMPS
+
+  * 2种格式
+
+    * CMPSB
+    * CMPSW
+
+  * 执行操作
+
+    * ```assembly
+      (ES:DI) - (DS:SI)
+      (SI) <- (SI) +/- 1(2)
+      (DI) <- (DI) +/- 1(2)
+      ```
+
+    * 结果不存，置标志
+
+* 串扫描指令SCAS
+
+  * 2种格式
+
+    * SCASB
+
+      * ```assembly
+        (AL) - (ES:DI)
+        (DI) <- (DI) +/- 1
+        ```
+
+    * SCASW
+
+      * ```assembly
+        (AL) - (ES:DI)
+        (DI) <- (DI) +/- 1
+        ```
+
+  * 两数相减，只影响标志，不影响操作数
+
+* CMPS和SCAS可与前缀REPE/REPZ和REPNE/REPNZ联合工作
+
+  1. 当相等/为0时重复串操作
+  2. 当不相等/不为0时重复串操作
+
+#### 转移指令
+
+* 转移指令控制程序从一处转换到另一处执行
+
+* 在CPU内部，转移是通过将目标地址传送给IP来实现的
+
+* 2种：
+
+  * 无条件转移指令
+  * 条件转移指令
+
+* 无条件转移指令JMP(Jump)
+
+  * 格式：JMP 语句标号
+
+* 条件转移指令
+
+  1. 根据单个条件标志转移
+     * Z标志：JZ/JNZ
+     * C标志：JC/JNC
+     * P标志：JP(JPE)/JNP(JPO)
+     * S标志：JS/JNS
+     * O标志：JO/JNO
+  2. 根据两个无符号数大小关系转移
+     * JB、JNAE；JNB、JAE
+     * JBE、JNA；JNBE、JA
+  3. 根据两个带符号数比较结果转移
+     * JL(JNGE)/JNL(JGE); 小于跳转/不小于跳转
+     * JLE(JNG)/JNLE(JG)
+
+  * 所有条件转移指令都是段内（-128～+127）？范围内转移
+
+* 过程（子程序）调用指令
+
+  * 子程序 -- 程序中具有独立功能的部分编写成独立程序模块
+  * 子程序调用
+    * CALL 子过程名
+  * 返回指令 RET
+    * 在子程序的结尾，用来返回主程序
+
+* 循环控制指令
+
+  * 无条件循环
+    * LOOP 语句标号
+    * 操作
+      * (CX) <- (CX) - 1
+      * 若CX != 0, 转向目标地址执行，否则执行LOOP指令之后的指令
+  * 条件循环
+    * LOOPZ/LOOPE 语句标号
+    * 操作
+      * (CX) <- (CX) - 1
+      * 若CX != 0**且Z=1**, 转向目标地址执行，否则执行LOOP指令之后的指令
+    * LOOPNZ/LOOPNE
+
+* 中断指令（interrupt）
+
+  * 中断调用
+    * INT n
+    * n -- 中断号， 0~255
+  * 中断返回
+    * IRET
+
+#### 处理器控制类指令
+
+* 标志处理指令
+  * CLC （Clearcarryflag)清C标志
+  * STC（Setcarryflag )置C标志
+  * CMC（Complementcarryflag）对C求反
+  * CLD（Cleardirectionflag)清D标志
+  * STD（Setdirectionflag)置D标志
+  * CLI（Clearinterruptflag)清I标志
+  * STI （Setinterruptenableflag)置I标志
+* 其它处理器控制指令
+  * NOP（Nooperation)空操作
+  * HLT（Halt) CPU暂停状态
+  * WAITCPU等待状态
+  * ESC交权
+  * LOCK（Lockbus)总线锁定
+
+### OPCode - 简介
+
+略
